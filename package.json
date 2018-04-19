@@ -7,10 +7,14 @@
     "bindings": "^1.2.1",
     "nan": "^2.4.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "extract-zip": "^1.6.6"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "install": "node-gyp rebuild"
+    "install": "node-gyp rebuild",
+    "debug": "node-gyp rebuild --debug",
+    "preinstall": "node tasks/preinstall.js"
   },
   "repository": {
     "type": "git",
