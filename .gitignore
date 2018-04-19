@@ -42,3 +42,4 @@ driver
 asio
 common
 *.raw
+thirdparty/ASIO*
