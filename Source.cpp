@@ -171,7 +171,7 @@ long initAsioDriverInfo(DriverInfo *asioDriverInfo, int sR, int spb, std::vector
 	if (ASIOGetChannels(&asioDriverInfo->inputChannels, &asioDriverInfo->outputChannels) == ASE_OK)
 	{
 		printf("Availible audio channels (inputs: %d, outputs: %d);\n", asioDriverInfo->inputChannels, asioDriverInfo->outputChannels);
-		printf("Used audio channels (inputs: %d, outputs: %d);\n", iC.size(), oC.size());
+		printf("Used audio channels (inputs: %zd, outputs: %zd);\n", iC.size(), oC.size());
 		asioDriverInfo->outputChannels = (long)oC.size();
 		asioDriverInfo->inputChannels = (long)iC.size();
 		// get the usable buffer sizes
@@ -276,17 +276,17 @@ ASIOError createAsioBuffers(DriverInfo *asioDriverInfo, int bps, std::string end
 		switch(asioDriverInfo->channelInfos[0].type){
 			case 16:
 				printf("Supported type is 16 bits per sample, little endianess\n");
-				printf("Requested type is %d bits per sample, %s endianess\n", bps, end);
+				printf("Requested type is %d bits per sample, %s endianess\n", bps, end.c_str());
 			break;
 			
 			case 17:
 				printf("Supported type is 24 bits per sample, little endianess\n");
-				printf("Requested type is %d bits per sample, %s endianess\n", bps, end);
+				printf("Requested type is %d bits per sample, %s endianess\n", bps, end.c_str());
 			break;
 
 			case 18:
 				printf("Supported type is 32 bits per sample, little endianess\n");
-				printf("Requested type is %d bits per sample, %s endianess\n", bps, end);
+				printf("Requested type is %d bits per sample, %s endianess\n", bps, end.c_str());
 			break;					
 		}
 		if (result == ASE_OK)
@@ -337,7 +337,7 @@ static void WorkAsyncComplete(uv_work_t *req, int status){
 	Local<Array> inputArr = Array::New(asioDriverInfo.isolate, buffSize*4);
 	
 	for (int i = 0; i < asioDriverInfo.inputBuffers + asioDriverInfo.outputBuffers; i++){
-		if(asioDriverInfo.bufferInfos[i].isInput == true){
+		if(asioDriverInfo.bufferInfos[i].isInput){
 			switch (asioDriverInfo.channelInfos[i].type){
 				case ASIOSTInt16LSB:
 					inputArr->Set(i, Nan::NewBuffer((char *)asioDriverInfo.bufferInfos[i].buffers[index], buffSize * 2, buffer_delete_callback, 0).ToLocalChecked());
@@ -486,7 +486,7 @@ void AsioInit(const FunctionCallbackInfo<Value>& args){
 	strcpy(cstrDriverName, driverName.c_str());
 	
 	if(loadAsioDriver(cstrDriverName)){
-		
+		delete[] cstrDriverName;
 		if(ASIOInit(&asioDriverInfo.driverInfo) == ASE_OK){
 			printf("asioVersion:   %d\n"
 				"driverVersion: %d\n"
@@ -503,7 +503,6 @@ void AsioInit(const FunctionCallbackInfo<Value>& args){
 				asioCallbacks.bufferSwitchTimeInfo = &bufferSwitchTimeInfo;
 				
 				if(createAsioBuffers(&asioDriverInfo, bitsPerSample, endianess, inputChannels, outputChannels) == ASE_OK){
-
 					Local<Number> retval = Int32::New(isolate, -1);
 					args.GetReturnValue().Set(retval);
 					return;
@@ -520,10 +519,56 @@ void AsioInit(const FunctionCallbackInfo<Value>& args){
 		args.GetReturnValue().Set(retval);
 		return;
 	}
+	delete[] cstrDriverName;
 	Local<Number> retval = Int32::New(isolate, -5);
 	args.GetReturnValue().Set(retval);
 	return;	
 
+}
+
+void AsioInfo(const FunctionCallbackInfo<Value>& args){
+	Isolate * isolate = args.GetIsolate();
+	char *driverName;
+	ASIODriverInfo driverInfo;
+	if (args[0]->IsString()) {
+		Nan::Utf8String name(args[0]);
+		v8::Local<v8::String> strVal = args[0]->ToString();
+		driverName = static_cast<char*>(calloc(1, strVal->Utf8Length() + sizeof(char)));
+		memcpy(driverName, *name, strVal->Utf8Length());
+	}
+	else {
+		return Nan::ThrowTypeError("The ASIO driver's name must be passed as the first argument");
+	}
+
+	if(loadAsioDriver(driverName)){
+		if(ASIOInit(&driverInfo) == ASE_OK){
+			Local<Object> driverObj = Nan::New<Object>();
+			Local<String> asioVerProp = String::NewFromUtf8(isolate, "asioVersion");
+			Local<String> driverVerProp = String::NewFromUtf8(isolate,"driverVersion");
+			Local<String> driverNameProp = String::NewFromUtf8(isolate,"name");
+			Local<String> errorMsgProp = String::NewFromUtf8(isolate,"errorMessage");
+
+			Local<Value> asioVerValue = Nan::New(driverInfo.asioVersion);
+			Local<Value> driverVerValue = Nan::New(driverInfo.driverVersion);
+			Local<Value> driverNameValue = Nan::New(driverInfo.name).ToLocalChecked();
+			Local<Value> errorMsgValue = Nan::New(driverInfo.errorMessage).ToLocalChecked();
+
+			Nan::Set(driverObj, asioVerProp, asioVerValue);
+			Nan::Set(driverObj, driverVerProp, driverVerValue);
+			Nan::Set(driverObj, driverNameProp, driverNameValue);
+			Nan::Set(driverObj, errorMsgProp, errorMsgValue);
+
+			args.GetReturnValue().Set(driverObj);
+			free(driverName);
+			ASIODisposeBuffers();
+			ASIOExit();
+			return;
+		}
+	}
+
+	free(driverName);
+	args.GetReturnValue().SetUndefined();
+	return;
 }
 
 void AsioStart(const FunctionCallbackInfo<Value>& args){
@@ -582,5 +627,6 @@ void init(Local<Object> exports){
 	NODE_SET_METHOD(exports, "stop", AsioStop);
 	NODE_SET_METHOD(exports, "deInit", AsioDeInit);
 	NODE_SET_METHOD(exports, "start", AsioStart);
+	NODE_SET_METHOD(exports, "info", AsioInfo);
 }
 NODE_MODULE(nodeAudioAsio, init);
