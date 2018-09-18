@@ -5,12 +5,6 @@
 	"targets": [
 		{
 			"target_name": "nodeAudioAsio",
-			"sources": [
-				"<@(ASIO_SDK)/host/pc/asiolist.cpp",
-				"<@(ASIO_SDK)/host/asiodrivers.cpp",
-				"<@(ASIO_SDK)/common/asio.cpp",
-				"Source.cpp"
-			],
 			"include_dirs": [
 				"<@(ASIO_SDK)/asio",
 				"<@(ASIO_SDK)/build",
@@ -20,6 +14,17 @@
 				"<@(ASIO_SDK)/host/pc",
 				"<!(node -e \"require('nan')\")"
 			],
+            'conditions': [
+              ['OS == "win"', {
+                'sources': [
+                  # Windows-only; exclude on other platforms.
+                  "<@(ASIO_SDK)/host/pc/asiolist.cpp",
+    		      "<@(ASIO_SDK)/host/asiodrivers.cpp",
+    			  "<@(ASIO_SDK)/common/asio.cpp",
+    			  "Source.cpp"
+                ]
+              }],
+            ],
 		}
 	]
 }

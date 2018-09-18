@@ -1,5 +1,6 @@
 'use strict';
 
+const os = require('os');
 const https = require('https');
 const http = require('http');
 const urlLib = require('url');
@@ -14,6 +15,11 @@ const reposPath = path.normalize(path.join(__dirname, '..', 'thirdparty'));
 const zipPath = path.normalize(path.join(reposPath, path.basename(asioSdkUrl)));
 const protocol = { 'http:': http, 'https:': https };
 const topLevel = path.normalize(path.join(__dirname, '..'));
+
+if ( os.platform() !== "win32" ) {
+  console.log("Skipping for: ", os.platform());
+  return;
+}
 
 // Install the dependencies need for unzipping an archive
 execSync('npm install -D extract-zip', { cwd: topLevel });
