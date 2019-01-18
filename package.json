@@ -7,9 +7,7 @@
     "bindings": "^1.2.1",
     "nan": "^2.4.0"
   },
-  "devDependencies": {
-    "extract-zip": "^1.6.7"
-  },
+  "devDependencies": {},
   "scripts": {
     "test": "node asioTest.js",
     "install": "node-gyp rebuild",

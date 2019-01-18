@@ -21,10 +21,6 @@ if ( os.platform() !== "win32" ) {
   return;
 }
 
-// Install the dependencies need for unzipping an archive
-execSync('npm install -D extract-zip', { cwd: topLevel });
-const extract = require('extract-zip');
-
 function request(url, callback) {
   let urlObj = urlLib.parse(url);
   protocol[urlObj.protocol].get(url, (response) => {
@@ -37,7 +33,6 @@ function request(url, callback) {
     callback(err);
   });
 };
-
 
 if ( !fs.existsSync(asioSdkDir) ) {
   request(asioSdkUrl, (err, res) => {
@@ -66,6 +61,8 @@ if ( !fs.existsSync(asioSdkDir) ) {
     });
     res.on("end", () => {
       zipFile.end(() => {
+        execSync('npm install -P extract-zip', { cwd: topLevel });
+        const extract = require('extract-zip');
         extract(zipPath, { dir: reposPath }, (err) => {
           if ( err ) {
             console.error(`${err}`);
@@ -75,6 +72,7 @@ if ( !fs.existsSync(asioSdkDir) ) {
           }
           // Remove the zipped ASIO SDK
           fs.unlinkSync(zipPath);
+          execSync('npm uninstall -S extract-zip', { cwd: topLevel });
         });
       });
     });
